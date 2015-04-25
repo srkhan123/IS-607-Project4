@@ -1,0 +1,155 @@
+---
+title: "Project 4"
+output: html_document
+---
+
+
+####Using the following link : http://www.r-bloggers.com/search/web%20scraping; 
+####For each of the reference blog entries on the first page, you should pull out the 
+####1) title, 
+####2) date, 
+####3) author, 
+#### and store these in an R data frame. 
+
+######Use the following packages
+```{r}
+library(RCurl)
+library(XML)
+library(stringr)
+library(rjson)
+library(rvest)
+library(reshape)
+library(plyr)
+```
+
+####Create Function blogScraper 
+#####Input : url
+#####Output: Blog url, Blog Title, Blog Date and Blog Author
+```{r}
+    blogScraper <- function(url){
+    
+    # to read the html document into an R object
+    getPage = htmlParse(url)
+    
+    # get the top node or root of the document 
+    root<- xmlRoot(getPage)
+    
+    # Gets the sub-nodes within an XMLNode
+    body = xmlChildren(root)$body
+    
+    #The xpathSApply command first uses an XPath, and get applies a function, which is often an xmlValue function,
+    # to extract the relevant values
+    
+    # Title Value
+    blogTitle   = xpathSApply(body, "//h1", xmlValue)
+      if (is.null(blogTitle))    blogTitle <- NA
+    
+    # Date value
+    blogdate    = xpathSApply(body, "//div[@class='date']", xmlValue)
+      if (is.null(blogdate))    blogdate <- NA
+    
+    # Author value
+    blogauthor  = xpathSApply(body, "//a[@rel='author']",xmlValue)
+      if (is.null(blogauthor))    blogauthor <- NA
+    
+    # Returns all 4 values
+    return(c(url, blogTitle, blogdate, blogauthor))
+    
+    # Good Etiquettes - Suspend execution of R expressions for a given number of seconds
+    Sys.sleep(1)
+  }
+
+```
+
+#### Create Function getPageURLs 
+##### Input : Base url 
+##### Output : List of all page URLs in pagination
+
+```{r}
+  getPageURLs <-function(url){
+    
+    # to read the html document into an R object
+    getPage = htmlParse(url)
+    
+    # get the top node or root of the document
+    root<- xmlRoot(getPage)
+    
+    # Gets the sub-nodes within an XMLNode
+    body = xmlChildren(root)$body
+    
+    #The xpathSApply command first uses an XPath, and get applies a function, which is often an xmlValue function,
+    # to extract the relevant values
+    
+    #Last Page Value
+    max_url <- as.numeric(xpathSApply(body, "//a[@title='Last Page']" , xmlValue))
+    
+    # seq() - Generate regular sequences
+    # start with page 1 increment by 1 until last page is reached
+    # creates the extension for base url for all pages
+    add_url <- str_c('/page/', seq(1, max_url, 1))
+    
+    # as.list() - Function to construct, coerce and check for both kinds of R lists.
+    # as.list() convert character to list
+    urls_list <- as.list(str_c(url, add_url))
+    
+    # Returns page url in a list form
+    return (urls_list)
+  }
+```
+####This is where the main R program starts
+
+```{r}
+# Use the following Blog base url
+url <- "http://www.r-bloggers.com/search/web%20scraping"
+
+```
+
+##### First get all the links to pages using function getPageURLs()
+```{r}
+url_list <-  getPageURLs(url)
+head(url_list)
+class(url_list) #list
+```
+
+##### Captures all blog links on the web scraping blog pages(1 to 17)
+```{r}
+urls <- unlist(llply(url_list, getHTMLLinks))
+head(urls)
+```
+
+##### Identifies all the links on the url with -scrap in the link and removes duplicate links
+```{r}
+urls <- unique(unlist(urls[str_detect(urls, "-scrap")]))
+head(urls)
+```
+##### Put the relevant links in a list
+```{r}
+urls <- as.list(urls)
+class(urls)
+head(urls)
+
+```
+##### Apply same function blogScraper to all the web scraping urls, to get title date and author
+```{r}
+a <- sapply(urls, blogScraper)
+class(a)
+head(a)
+```
+##### transpose all entries to have a row for each record
+```{r}
+a <- t(a)
+class(a)
+head(a)
+```
+##### force Matrix into a dataframe
+```{r}
+a <- as.data.frame(a)
+class(a)
+head(a)
+```
+##### Name the dataframe columns appropriately
+```{r}
+a <- rename(a, c("V1"="Blog_URL", "V2"="Blog_Title", "V3" = "Blog_Date", "V4" = "Blog_Author"))
+class(a)
+a
+```
